@@ -3,7 +3,9 @@
 专门针对 `ae2webintegration-1.2.0-pre-forge-1.20.1.jar` 的旧版 jQuery 网页。
 这是独立的客户端导出器和浏览器用户脚本，**不需要替换服务端 JAR，不向服务端上传名称表**。
 
-仓库中的成品文件见 [`releases/v0.1.0/`](releases/v0.1.0/)。在 GitHub 打开 ZIP 或 JAR 文件后，使用 **Download raw file / 下载原始文件** 下载；SHA-256 校验值位于同目录的 `SHA256SUMS`。
+仓库中的最新成品文件见 [`releases/v0.1.1/`](releases/v0.1.1/)。在 GitHub 打开 ZIP 或 JAR 文件后，使用 **Download raw file / 下载原始文件** 下载；SHA-256 校验值位于同目录的 `SHA256SUMS`。
+
+v0.1.1 补齐了 Forge 加载所需的 `pack.mcmeta`（资源格式 15），修复 v0.1.0 的“未能加载有效的 ResourcePackInfo”警告。升级时先退出游戏，删除客户端 `mods/` 中的 v0.1.0 导出器，再放入 v0.1.1；不要同时保留两个版本。
 
 当前状态：Forge 客户端发行 JAR 已成功编译并完成 SRG 发布映射，使用 Java 17 字节码；5 项 Java 测试、12 项 DOM/jQuery 测试，以及针对官方旧版网页的真实 Chromium 测试均通过。
 稳定键与官方发布 JAR 的 256 组输入结果一致。浏览器测试使用受控 API，确认了中文搜索、名称转义、原名回退和合成 POST 的物品键、数量保持不变。
@@ -23,7 +25,7 @@
 
 ## 第一次只验证背包样本
 
-取得 `ae2web-local-names-0.1.0-mc1.20.1-client-only.jar` 后：
+取得 `ae2web-local-names-0.1.1-mc1.20.1-client-only.jar` 后：
 
 1. **只放进本地「齿轮盛宴」客户端的 `mods/`，不要放到服务器。** 不需要在客户端另装 AE2 Web Integration 服务端 Mod。
 2. 使用原整合包和汉化资源，切换游戏语言为简体中文，进入世界。建议先使用本地测试世界；同一整合包、资源和脚本需保持一致。
@@ -64,7 +66,7 @@ npm --prefix tools/name-localization test
 node_modules/.bin/eslint --config tools/name-localization/eslint.config.mjs tools/name-localization/ae2web-names.user.js tools/name-localization/test/*.cjs
 python3 tools/name-localization/test/verify-provenance.py
 bash gradlew -p tools/name-localization/verify-java test
-bash gradlew -p tools/name-localization/client test reobfJar
+bash gradlew -p tools/name-localization/client build
 ```
 
 真实浏览器验证（需先在 `tools/ui-tests` 安装锁定的 Playwright 依赖及 Chromium）：
@@ -76,7 +78,7 @@ AE2WEB_RELEASE_JAR=/path/to/ae2webintegration-1.2.0-pre-forge-1.20.1.jar \
 
 测试从官方 JAR 中提取原网页，并像服务端一样填入用户和更新状态占位符；jQuery 使用同版本本地副本。字体和图表 CDN 在该测试中不加载，名称数据及合成响应由本地受控 API 提供，不连接真实服务器。
 
-最后一条必须成功才会得到可安装的 Forge 发行 JAR，位于 `tools/name-localization/client/build/libs/`。
+最后一条包含发行 JAR 元数据检查，必须成功才会得到可安装的 Forge 发行 JAR，位于 `tools/name-localization/client/build/libs/`。
 不要安装 `-dev.jar`，不要使用 `jar` 任务的开发映射产物。
 
 重建时需要访问：`maven.neoforged.net`、`maven.minecraftforge.net`、`modmaven.dev`、`launchermeta.mojang.com`、`piston-meta.mojang.com`、`piston-data.mojang.com` 和 `libraries.minecraft.net`，以及常规 Maven/Gradle 下载站。
