@@ -6,7 +6,7 @@
 - [单独下载客户端 JAR](ae2web-local-names-0.1.1-mc1.20.1-client-only.jar)。
 - [SHA-256 校验值](SHA256SUMS)。
 - [完整使用说明](../../README.md)。
-- [最新版网页脚本](../../ae2web-names.user.js)：脚本 v0.1.1 已配置 `http://k.rainplay.cn:34392/`。旧 ZIP 内脚本默认匹配本机地址，请在 Tampermonkey 中更新为此脚本；客户端 JAR 无需更换。
+- [最新版网页脚本](../../ae2web-names.user.js)：脚本 v0.2.0 已配置 `http://k.rainplay.cn:34392/`，并增加默认开启、可独立关闭的界面汉化。旧 ZIP 内脚本默认匹配本机地址且不含界面汉化，请在 Tampermonkey 中更新为此脚本；已有名称表保留，客户端 JAR 无需更换。
 
 升级：退出游戏，删除本地客户端 `mods/` 中的 `ae2web-local-names-0.1.0-mc1.20.1-client-only.jar`，再放入 v0.1.1。不要同时放两个版本。服务端无需修改。
 

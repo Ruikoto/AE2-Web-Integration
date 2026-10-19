@@ -31,12 +31,14 @@ const response = (data) => ({ status: 'OK', data });
 const wait = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 async function fixture(t, options = {}) {
-    const dom = new JSDOM('<!doctype html><html><body><main>AE2 Web Integration</main></body></html>', {
+    const dom = new JSDOM(options.html || '<!doctype html><html><body><main>AE2 Web Integration</main></body></html>', {
         url: options.url || 'http://localhost:2324/',
         runScripts: 'outside-only'
     });
     t.after(() => dom.window.close());
     const window = dom.window;
+    if (options.dialogs) Object.assign(window, options.dialogs);
+    if (options.Chart) window.Chart = options.Chart;
     Object.defineProperty(window, 'indexedDB', { value: options.storage || new IDBFactory() });
     const $ = jquery(window);
     window.jQuery = window.$ = $;
@@ -312,4 +314,109 @@ test('storage quota failures preserve the previous table and enabled state', asy
     assert.equal((await f.request()).data[0].itemname, '铁锭');
     await f.toggle();
     assert.equal((await f.request()).data[0].itemname, '铁锭');
+});
+
+test('UI translation covers dynamic labels and display attributes without altering identities or inputs', async (t) => {
+    const f = await fixture(t, {
+        html: `<!doctype html><html lang="en"><head><title>AE2</title></head><body>
+      <h1>UNIVERSAL WEB TERMINAL</h1><button id="sortByButton"># of items</button>
+      <input id="searchtext" placeholder="Search string" aria-label="Search terminal items">
+      <input id="password" name="password" type="password" value="Settings">
+      <input id="submit" type="submit" value="Enter">
+      <select id="numberformat"><option value="2">Compact</option></select>
+      <span id="username">Settings</span><strong class="grid-access-name">Controller</strong>
+      <div id="terminalCPUList"><button name="cpu-original-key">Refresh</button></div>
+      <div id="terminalcontent"><table><tr><td><b>Settings</b><br>Stored: 64<button>order</button></td></tr></table></div>
+      <div id="alertoverlay"></div></body></html>`
+    });
+    const d = f.window.document;
+    assert.equal(d.querySelector('h1').textContent, '通用网页终端');
+    assert.equal(d.getElementById('sortByButton').textContent, '按数量');
+    assert.equal(d.getElementById('searchtext').getAttribute('aria-label'), '搜索终端物品');
+    assert.equal(d.getElementById('submit').value, '登录');
+    assert.equal(d.querySelector('option').value, '2');
+    assert.equal(d.querySelector('option').textContent, '紧凑格式');
+    assert.equal(d.getElementById('password').value, 'Settings');
+    assert.equal(d.getElementById('username').textContent, 'Settings');
+    assert.equal(d.querySelector('.grid-access-name').textContent, 'Controller');
+    assert.equal(d.querySelector('#terminalCPUList button').textContent, 'Refresh');
+    assert.equal(d.querySelector('#terminalcontent b').textContent, 'Settings');
+    assert.match(d.getElementById('terminalcontent').textContent, /库存：64/);
+    d.getElementById('sortByButton').textContent = 'Descending';
+    d.getElementById('alertoverlay').textContent = 'GRID_NOT_FOUND: test';
+    await wait();
+    assert.equal(d.getElementById('sortByButton').textContent, '降序');
+    assert.equal(d.getElementById('alertoverlay').textContent, '网络不存在或不可用: test');
+    const toggle = [...d.querySelectorAll('#ae2web-local-names button')].find((b) => b.textContent === '关闭界面汉化');
+    toggle.click();
+    assert.equal(d.getElementById('sortByButton').textContent, 'Descending');
+    assert.equal(d.getElementById('submit').value, 'Enter');
+    assert.equal(d.getElementById('searchtext').getAttribute('aria-label'), 'Search terminal items');
+    assert.equal(d.querySelector('#terminalcontent b').textContent, 'Settings');
+    assert.equal(d.documentElement.lang, 'en');
+    assert.equal(d.title, 'AE2');
+    await f.importTable(table());
+    await f.toggle();
+    assert.equal((await f.request()).data[0].itemname, '铁锭');
+});
+
+test('UI dialogs preserve return values and defaults; chart data labels and CPU names remain unchanged', async (t) => {
+    const calls = [];
+    const f = await fixture(t, {
+        dialogs: {
+            prompt(message, initial) {
+                calls.push([message, initial]);
+                return '7';
+            },
+            confirm(message) {
+                calls.push(message);
+                return false;
+            },
+            alert(message) {
+                calls.push(message);
+            }
+        },
+        Chart: function Chart(id, config) {
+            this.id = id;
+            this.config = config;
+        }
+    });
+    assert.equal(f.window.prompt('How much to order?', '1'), '7');
+    assert.deepEqual(calls[0], ['请输入要合成的数量：', '1']);
+    assert.equal(
+        f.window.confirm('Are you sure you want to purge icons cache? This will result all icons to be redownloaded!'),
+        false
+    );
+    assert.match(calls[1], /确定清空图标缓存/);
+    const labels = ['Settings', 'Start'];
+    const chart = new f.window.Chart('chart', {
+        data: { labels },
+        options: {
+            title: { text: 'Interface share' },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label() {
+                            return ['From 12:00', 'To 13:00'];
+                        }
+                    }
+                }
+            }
+        }
+    });
+    assert.equal(chart.config.data.labels, labels);
+    assert.equal(chart.config.options.title.text, '接口使用情况');
+    assert.deepEqual(chart.config.options.plugins.tooltip.callbacks.label(), ['开始：12:00', '结束：13:00']);
+    const d = f.window.document;
+    const cpu = d.createElement('span');
+    cpu.id = 'terminalCPUHeaderText';
+    cpu.textContent = 'Refresh: Idle';
+    d.body.append(cpu);
+    const grid = d.createElement('span');
+    grid.id = 'currentgrid';
+    grid.textContent = `Current grid: ${key} [ Owned by Settings ][ CPU count: 5 ][ Default ][ Tracked ]`;
+    d.body.append(grid);
+    await wait();
+    assert.equal(cpu.textContent, 'Refresh：空闲');
+    assert.equal(grid.textContent, `当前网络：${key} [所有者：Settings][合成 CPU：5][默认][已记录]`);
 });
