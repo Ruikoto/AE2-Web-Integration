@@ -264,6 +264,29 @@ test('document-start installation hooks jQuery when its script subsequently load
     assert.equal((await f.request()).data[0].itemname, '铁锭');
 });
 
+test('configured public panel URL supports importing and resolving names', async (t) => {
+    const f = await fixture(t, { url: 'http://k.rainplay.cn:34392/' });
+    await f.importTable(table());
+    await f.toggle();
+    assert.equal((await f.request()).data[0].itemname, '铁锭');
+});
+
+test('configured public host on other ports does not inject UI or open storage', async (t) => {
+    const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+        url: 'http://k.rainplay.cn:34393/',
+        runScripts: 'outside-only'
+    });
+    t.after(() => dom.window.close());
+    Object.defineProperty(dom.window, 'indexedDB', {
+        get() {
+            throw new Error('Storage must not be accessed');
+        }
+    });
+    dom.window.eval(script);
+    dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded'));
+    assert.equal(dom.window.document.querySelector('#ae2web-local-names'), null);
+});
+
 test('storage quota failures preserve the previous table and enabled state', async (t) => {
     const factory = new IDBFactory();
     let denyWrites = false;

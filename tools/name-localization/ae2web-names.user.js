@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         AE2 Web Integration 1.2.0-pre 中文物品名
 // @namespace    ae2web-local-names
-// @version      0.1.0
+// @version      0.1.1
 // @description  本地名称表；只替换旧版网页 GET 响应中的 itemname，不修改服务器或请求。
 // @match        http://127.0.0.1:2324/*
 // @match        http://localhost:2324/*
+// @match        http://k.rainplay.cn/*
 // @run-at       document-start
 // @grant        none
 // @sandbox      raw
@@ -12,7 +13,10 @@
 
 (() => {
     'use strict';
-    // Change @match to the exact address of YOUR panel before installing.
+    // Host-only @match supports managers that do not accept ports in match patterns.
+    // Restrict the configured public host to its panel port at runtime.
+    if (location.hostname === 'k.rainplay.cn' && location.port !== '34392') return;
+    // Change @match and this port restriction when using another panel address.
     // Intentionally targets the released 1.2.0-pre jQuery UI, not the newer core UI.
     const target = '1.2.0-pre-forge-1.20.1';
     const contract = 'ae2wi-1.2.0-pre-forge-1.20.1';
