@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AE2 Web Integration 1.2.0-pre 中文物品名
 // @namespace    ae2web-local-names
-// @version      0.2.0
+// @version      1.0.0
 // @description  旧版网页界面汉化与本地物品名称表；不修改服务器或请求。
 // @match        http://127.0.0.1:2324/*
 // @match        http://localhost:2324/*
@@ -198,15 +198,19 @@
         if (panel || !document.body) return;
         panel = document.createElement('aside');
         panel.id = 'ae2web-local-names';
+        panel.setAttribute('aria-labelledby', 'ae2web-local-names-title');
         panel.style.cssText =
-            'position:fixed;bottom:8px;right:8px;z-index:2147483647;background:#20242b;color:#fff;padding:10px;border:1px solid #778;border-radius:6px;font:14px sans-serif;max-width:360px';
+            'position:fixed;bottom:12px;right:12px;z-index:2147483647;background:#20242b;color:#fff;padding:14px;border:1px solid #778;border-radius:6px;font:14px/1.5 sans-serif;width:340px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 24px);overflow:auto;box-sizing:border-box;box-shadow:0 6px 24px #0008';
         const title = document.createElement('strong');
+        title.id = 'ae2web-local-names-title';
+        title.style.cssText = 'display:block;padding-right:52px';
         title.textContent = '中文显示（仅本浏览器）';
         status = document.createElement('p');
         status.setAttribute('role', 'status');
         const file = document.createElement('input');
         file.type = 'file';
         file.accept = '.json,application/json';
+        file.style.cssText = 'display:block;width:100%;box-sizing:border-box';
         file.setAttribute('aria-label', '导入中文名称表');
         file.addEventListener('change', () =>
             action(async () => {
@@ -249,7 +253,76 @@
             ui.setEnabled(!ui.enabled());
             update('界面语言已切换。刷新可更新已打开的图表；物品名称表保持不变。');
         });
-        panel.append(title, status, file, document.createElement('br'), toggle, clear, uiToggle);
+        const footer = document.querySelector('body > footer');
+        const footerToggle = document.createElement('button');
+        footerToggle.type = 'button';
+        footerToggle.disabled = !footer;
+        const footerPreference = `ae2web-footer-visible:${storageKey}`;
+        function showFooter(visible) {
+            if (footer) footer.hidden = !visible;
+            footerToggle.textContent = visible ? '隐藏底部信息栏' : '显示底部信息栏';
+            footerToggle.setAttribute('aria-pressed', String(visible));
+            try {
+                localStorage.setItem(footerPreference, visible ? 'on' : 'off');
+            } catch {
+                /* Keep the toggle usable without persistent storage. */
+            }
+        }
+        let footerVisible = false;
+        try {
+            footerVisible = localStorage.getItem(footerPreference) === 'on';
+        } catch {
+            /* Start with the footer hidden. */
+        }
+        showFooter(footerVisible);
+        footerToggle.addEventListener('click', () => showFooter(footer?.hidden === true));
+        const launcher = document.createElement('button');
+        launcher.type = 'button';
+        launcher.id = 'ae2web-local-names-button';
+        launcher.textContent = '中文显示';
+        launcher.setAttribute('aria-controls', panel.id);
+        launcher.title = '展开或收起中文显示设置';
+        const sidebar = document.querySelector('#terminalsubcontainersettings > section');
+        if (sidebar) {
+            launcher.style.cssText = 'display:block;width:calc(100% - 10px);margin:10px 5px';
+            sidebar.append(launcher);
+        } else {
+            launcher.style.cssText =
+                'position:fixed;top:50%;right:0;z-index:2147483646;writing-mode:vertical-rl;padding:12px 8px;border:1px solid #778;border-radius:6px 0 0 6px;background:#2b3555;color:#fff;font:14px sans-serif;cursor:pointer';
+            document.body.append(launcher);
+        }
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = '收起';
+        close.setAttribute('aria-label', '收起中文显示设置');
+        close.style.cssText = 'position:absolute;top:10px;right:10px';
+        const panelPreference = `ae2web-names-panel-open:${storageKey}`;
+        function setOpen(open, focus = false) {
+            panel.hidden = !open;
+            launcher.setAttribute('aria-expanded', String(open));
+            try {
+                localStorage.setItem(panelPreference, open ? 'on' : 'off');
+            } catch {
+                /* Keep the panel usable when storage is blocked. */
+            }
+            if (focus) (open ? close : launcher).focus();
+        }
+        launcher.addEventListener('click', () => setOpen(panel.hidden, true));
+        close.addEventListener('click', () => setOpen(false, true));
+        panel.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                setOpen(false, true);
+            }
+        });
+        let open = false;
+        try {
+            open = localStorage.getItem(panelPreference) === 'on';
+        } catch {
+            /* Start collapsed when storage is blocked. */
+        }
+        setOpen(open);
+        panel.append(title, status, file, document.createElement('br'), toggle, clear, uiToggle, footerToggle, close);
         document.body.append(panel);
         update();
     }

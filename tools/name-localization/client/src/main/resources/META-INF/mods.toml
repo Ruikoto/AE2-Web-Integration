@@ -4,7 +4,7 @@ license = "LGPL-3.0-or-later"
 
 [[mods]]
 modId = "ae2web_local_names"
-version = "0.1.1"
+version = "1.0.0"
 displayName = "AE2 Web Local Names (client only)"
 displayTest = "IGNORE_ALL_VERSION"
 description = "Exports local Chinese item and fluid names for AE2 Web Integration 1.2.0-pre. No packets or world changes."

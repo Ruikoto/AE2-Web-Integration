@@ -48,6 +48,14 @@ password accordingly!
 
 ## Current features
 
+### Chinese names and UI for the legacy 1.20.1 panel
+
+For `1.2.0-pre-forge-1.20.1`, the optional [Chinese localization tools](tools/name-localization/README.md)
+provide a client-side name exporter and a browser userscript. They require no server JAR replacement.
+The script translates the legacy UI, imports local item names, and adds a collapsible **中文显示** button
+to the settings column. See the [v1.0.0 release](https://github.com/Ruikoto/AE2-Web-Integration/releases/tag/name-localization-v1.0.0)
+for downloads. The exporter is installed only in the Minecraft client; it is separate from the server mod.
+
 ### Optional item icons
 
 To show item icons in the web panel, generate an icon pack from your Minecraft client:

@@ -123,6 +123,34 @@ for (const chineseUi of [false, true])
             const base = `http://127.0.0.1:${server.address().port}/`;
             await page.goto(base);
             const panel = page.locator('#ae2web-local-names');
+            const launcher = page.locator('#ae2web-local-names-button');
+            await launcher.waitFor();
+            assert.equal(await panel.isHidden(), true);
+            assert.equal(await page.locator('body > footer').isHidden(), true);
+            assert.equal(
+                await page.locator('#terminalsubcontainersettings > section > #ae2web-local-names-button').count(),
+                1
+            );
+            await launcher.click();
+            assert.equal(await launcher.getAttribute('aria-expanded'), 'true');
+            await panel.getByRole('button', { name: '显示底部信息栏', exact: true }).click();
+            assert.equal(await page.locator('body > footer').isVisible(), true);
+            assert.equal(
+                await page.locator('body > footer a').first().getAttribute('href'),
+                'https://github.com/kuba6000/AE2-Web-Integration'
+            );
+            await page.reload();
+            await panel.getByRole('button', { name: '隐藏底部信息栏', exact: true }).waitFor();
+            assert.equal(await page.locator('body > footer').isVisible(), true);
+            await panel.getByRole('button', { name: '隐藏底部信息栏', exact: true }).click();
+            await panel.getByRole('button', { name: '收起中文显示设置', exact: true }).click();
+            assert.equal(await launcher.getAttribute('aria-expanded'), 'false');
+            assert.equal(await launcher.evaluate((element) => element === element.ownerDocument.activeElement), true);
+            await page.reload();
+            await launcher.waitFor();
+            assert.equal(await panel.isHidden(), true);
+            assert.equal(await page.locator('body > footer').isHidden(), true);
+            await launcher.click();
             await panel.getByRole('button', { name: '开启中文名', exact: true }).waitFor();
             await page.locator('#currentgrid').click();
             await page.locator('#gridselection').selectOption(key);
@@ -162,6 +190,11 @@ for (const chineseUi of [false, true])
             await page.locator('#currentgrid').click();
             await page.locator('#gridselection').selectOption(key);
             await page.locator('#terminalcontent').getByText('铁锭', { exact: true }).waitFor();
+            await panel.getByRole('button', { name: '收起中文显示设置', exact: true }).focus();
+            await page.keyboard.press('Escape');
+            assert.equal(await panel.isHidden(), true);
+            assert.equal(await page.locator('#terminalcontent').getByText('铁锭', { exact: true }).isVisible(), true);
+            await launcher.click();
             await page.locator('#terminalcontent').getByText('My renamed ingot', { exact: true }).waitFor();
             assert.equal(await page.locator('#terminalcontent img[src="x"]').count(), 0);
             assert.equal(await page.evaluate('window.name'), '');
@@ -250,6 +283,29 @@ for (const chineseUi of [false, true])
                 .getByRole('button', { name: chineseUi ? '终端' : 'Terminal', exact: true })
                 .click();
             if (chineseUi) {
+                // The original mobile page collapses its settings column independently.
+                await panel.getByRole('button', { name: '收起中文显示设置', exact: true }).click();
+                if (process.env.AE2WEB_SCREENSHOT_DIR) {
+                    fs.mkdirSync(process.env.AE2WEB_SCREENSHOT_DIR, { recursive: true });
+                    await page.screenshot({
+                        path: path.join(process.env.AE2WEB_SCREENSHOT_DIR, 'terminal-collapsed.png')
+                    });
+                }
+                await page.setViewportSize({ width: 390, height: 844 });
+                await page.locator('#terminalsubcontainersettings > button.collapsible').click();
+                await launcher.click();
+                const bounds = await panel.boundingBox();
+                assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 390);
+                assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 844);
+                if (process.env.AE2WEB_SCREENSHOT_DIR)
+                    await page.screenshot({
+                        path: path.join(process.env.AE2WEB_SCREENSHOT_DIR, 'terminal-mobile.png')
+                    });
+                await page.setViewportSize({ width: 1280, height: 720 });
+                if (process.env.AE2WEB_SCREENSHOT_DIR)
+                    await page.screenshot({
+                        path: path.join(process.env.AE2WEB_SCREENSHOT_DIR, 'terminal-expanded.png')
+                    });
                 await panel.getByRole('button', { name: '关闭界面汉化', exact: true }).click();
                 await page.getByRole('textbox', { name: 'Search terminal items' }).waitFor();
                 await page.reload();
@@ -318,6 +374,8 @@ test(
         const base = `http://127.0.0.1:${server.address().port}/`;
         await page.goto(base + '?INVALID_PASSWORD');
         await page.getByRole('button', { name: '接受 Cookie', exact: true }).click();
+        assert.equal(await page.locator('#ae2web-local-names').isHidden(), true);
+        assert.equal(await page.locator('body > footer').isHidden(), true);
         assert.equal((await page.locator('#maininfo').innerText()).trim(), '密码错误！');
         assert.equal(await page.title(), 'AE2 网页终端');
         assert.match(
@@ -349,6 +407,7 @@ test(
             await page.locator('#maininfo').innerText(),
             /请在游戏内输入以下命令完成注册：\n\/ae2webintegration auth Settings-Refresh-TestToken/
         );
+        await page.locator('#ae2web-local-names-button').click();
         await page.locator('#ae2web-local-names').getByRole('button', { name: '关闭界面汉化', exact: true }).click();
         assert.match(
             await page.locator('#maininfo').innerText(),
