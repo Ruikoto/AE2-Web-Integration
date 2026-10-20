@@ -3,24 +3,49 @@
 专门针对 `ae2webintegration-1.2.0-pre-forge-1.20.1.jar` 的旧版 jQuery 网页。
 这是独立的客户端导出器和浏览器用户脚本，**不需要替换服务端 JAR，不向服务端上传名称表**。
 
-正式版 **v1.0.0**：[GitHub Release](https://github.com/Ruikoto/AE2-Web-Integration/releases/tag/name-localization-v1.0.0) · [发行文件](releases/v1.0.0/) · [最新版网页脚本](ae2web-names.user.js)。这是针对旧版 AE2WI 的独立汉化工具版本号，不是服务端 Mod 的版本号。在 GitHub 打开 ZIP 或 JAR 文件后，使用 **Download raw file / 下载原始文件** 下载；SHA-256 校验值位于同目录的 `SHA256SUMS`。
+## 下载地址
 
-最新版浏览器脚本现为 **v1.3.0**，新增一键导出完整库存 JSON，包含可合成标记；保留全拼／小鹤双拼切换和可选模糊音。v1.0.0 发行包保持原样，已安装用户只需更新上方最新版脚本；客户端导出器仍为 v1.0.0。
+| 文件／说明           | 版本                     | 下载或查看                                                                                                                                                                                                                                                                                                                           |
+| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 最新版浏览器脚本     | **v1.3.0**               | [安装／更新油猴脚本](https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/heads/codex/chinese-item-names-client/tools/name-localization/ae2web-names.user.js) · [查看源码](ae2web-names.user.js)                                                                                                                                  |
+| 客户端中文名称导出器 | **v1.0.0**               | [直接下载 JAR](https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/tags/name-localization-v1.0.0/tools/name-localization/releases/v1.0.0/ae2web-local-names-1.0.0-mc1.20.1-client-only.jar)                                                                                                                                      |
+| v1.0.0 完整发行包    | **v1.0.0**，包含旧版脚本 | [下载 ZIP](https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/tags/name-localization-v1.0.0/tools/name-localization/releases/v1.0.0/ae2web-local-names-1.0.0-mc1.20.1.zip) · [校验值](https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/tags/name-localization-v1.0.0/tools/name-localization/releases/v1.0.0/SHA256SUMS) |
+| 发行记录与文件说明   | —                        | [GitHub Release](https://github.com/Ruikoto/AE2-Web-Integration/releases/tag/name-localization-v1.0.0) · [发行目录](releases/v1.0.0/)                                                                                                                                                                                                |
 
-v1.0.0 保留 v0.1.1 的资源元数据修复，客户端导出器的全部 8 个类与 v0.1.1 字节一致；旧 v0.1.1 导出器可继续使用。若替换 JAR，先退出游戏并移除旧版，不要同时保留两个版本。
+**请优先安装最新版脚本。** v1.3.0 包含网页汉化、全拼／首字母／小鹤双拼搜索、十组可选模糊音和一键导出完整库存 JSON。v1.0.0 ZIP 内没有后续新增的搜索与库存导出功能；下载 ZIP 后仍需单独更新脚本。这里的版本号属于独立工具，不是服务端 AE2WI Mod 的版本号。
 
-当前状态：Forge 客户端发行 JAR 已成功编译并完成 SRG 发布映射，使用 Java 17 字节码；此前 5 项 Java 测试与官方发布 JAR 的 256 组稳定键对比通过，用户已反馈「齿轮盛宴」背包样本导出及网页中文名显示成功。
-本次脚本通过 28 项 DOM/jQuery 测试和 3 项原版网页 Chromium 测试。浏览器测试使用本地模拟 API，覆盖实际库存 JSON 下载、超大数量精度、中文、全拼、小鹤双拼、模糊音、设置保存、名称转义、语言切换、合成计划、提交、取消、记录及登录注册表单，检查物品键、CPU 键、数量和账号字段保持不变。完整导出覆盖率及真实游戏合成仍需实际验证；不要把开发映射 JAR 当成安装包。
+脚本直链（可复制到浏览器地址栏打开）：
+
+```text
+https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/heads/codex/chinese-item-names-client/tools/name-localization/ae2web-names.user.js
+```
+
+如果打开后只显示代码，在 Tampermonkey 中打开现有同名脚本，将全部内容替换为新代码并保存；首次安装则新建脚本后粘贴。不要同时启用多个副本。
+
+## 中文快速使用
+
+| 想使用的功能       | 操作                                                                | 是否需要客户端导出器             |
+| ------------------ | ------------------------------------------------------------------- | -------------------------------- |
+| 网页界面汉化       | 安装脚本并刷新，默认开启                                            | 不需要                           |
+| 中文物品名         | 在相同整合包、简体中文环境导出名称 JSON，网页导入后开启中文名并刷新 | 需要；已有名称表可继续使用       |
+| 全拼／小鹤双拼搜索 | “中文显示 → 搜索模式”；模糊音在下方展开并勾选                       | 条目已有中文名即可，无需额外导出 |
+| 完整库存 JSON      | 选择网络后，“中文显示 → 导出当前库存 JSON”                          | 不需要；中文名称取决于已有名称表 |
+
+首次导出中文名称的顺序：客户端 `mods/` 放入导出器 JAR → 游戏切换简体中文并进入世界 → `/ae2webnames sample` 测试或 `/ae2webnames export confirm` 完整导出 → 找到游戏目录 `ae2webnames/` 中的 JSON → 网页“中文显示”导入 → 开启中文名并刷新。详细步骤见下文。
+
+脚本已配置终端地址 `http://k.rainplay.cn:34392/`，以及本机 `http://localhost:2324/`、`http://127.0.0.1:2324/`。其他地址需调整脚本头部 `@match` 和公共主机端口限制，不要改成匹配所有网站。名称表和偏好设置按浏览器、站点及路径隔离，换浏览器或更换终端地址后需重新导入名称表。
 
 ## 已安装旧脚本：只升级网页汉化
 
-在 Tampermonkey 中将现有同名脚本更新为 [`ae2web-names.user.js`](ae2web-names.user.js) v1.3.0，刷新终端网页即可。不要保留两个同时运行的副本。
+在 Tampermonkey 中[更新现有同名脚本到 v1.3.0](https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/heads/codex/chinese-item-names-client/tools/name-localization/ae2web-names.user.js)，刷新终端网页即可。不要保留两个同时运行的副本。
 
 界面汉化默认开启，覆盖终端菜单、搜索提示、设置、网络选择、合成计划与状态、合成记录、登录注册和已知错误提示。面板默认收起，点击网页右侧“设置”列中的“中文显示”按钮展开；点击“收起”或在面板内按 Esc 关闭，展开状态会保存在当前浏览器。登录页没有设置列时，入口位于屏幕右侧；窄屏终端先展开原网页的“设置”再点击“中文显示”。
 
 面板内的“关闭界面汉化”可独立切换界面语言并保存；已打开的图表需刷新后更新语言。未知提示保留原文。底部作者信息栏默认隐藏，可在面板中点击“显示底部信息栏”恢复，原作者及项目链接保留，显示状态同样记忆。收起面板不关闭汉化。
 
 原有名称 JSON 和中文名开关保持不变，**无需重装客户端 JAR、重新导出或重新导入名称表**。物品名仍由名称表决定；只更新脚本不会自动补全未导出的物品。
+
+客户端 v1.0.0 导出器保留 v0.1.1 的资源元数据修复，全部 8 个类与 v0.1.1 字节一致；旧 v0.1.1 导出器也可继续使用。若替换 JAR，先退出游戏并移除旧版，不要同时保留两个版本。
 
 ## 一键导出当前库存 JSON
 
@@ -128,7 +153,7 @@ v1.0.0 保留 v0.1.1 的资源元数据修复，客户端导出器的全部 8 �
 ## 浏览器导入
 
 1. 安装支持在页面主上下文运行用户脚本的管理器，例如 Tampermonkey。
-2. 安装仓库中的最新版 [`ae2web-names.user.js`](ae2web-names.user.js)。脚本已配置 `http://k.rainplay.cn:34392/`，无需手改地址；客户端导出器版本独立，不需要重装。其他站点需调整 `@match` 和对应端口限制，不要设置成匹配所有网站。
+2. [安装最新版 `ae2web-names.user.js`](https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/heads/codex/chinese-item-names-client/tools/name-localization/ae2web-names.user.js)。脚本已配置 `http://k.rainplay.cn:34392/`，无需手改地址；客户端导出器版本独立，不需要重装。其他站点需调整 `@match` 和对应端口限制，不要设置成匹配所有网站。
 3. 安装脚本，打开原有 AE2 Web 页面，在右侧“设置”列点击“中文显示”展开面板。它支持的是 1.2.0-pre 旧网页；登录页可以直接汉化界面，但没有物品接口，中文名开关保持禁用。已登录的终端若仍显示“未检测到旧版网页接口”，请先检查版本和用户脚本执行上下文。
 4. 导入样本 JSON，然后点击“开启中文名”，手动刷新网页。名称表保存在这个浏览器的 IndexedDB 中，按终端地址及路径隔离，不上传服务器。导入新表时默认重新关闭。
 5. 确认几个样本名称、数量及自定义改名都正确，并确认能用中文搜索。第一轮可以只查看，不提交合成请求。
@@ -151,6 +176,10 @@ v1.0.0 保留 v0.1.1 的资源元数据修复，客户端导出器的全部 8 �
 以上操作都不需要改服务器文件或存档。
 
 ## 开发验证与构建
+
+当前验证状态：Forge 客户端发行 JAR 已完成 SRG 发布映射，使用 Java 17 字节码；此前 5 项 Java 测试与官方发布 JAR 的 256 组稳定键对比通过，用户已反馈「齿轮盛宴」中文名称导出及网页显示成功。
+
+脚本通过 28 项 DOM/jQuery 测试和 3 项原版网页 Chromium 测试，覆盖实际库存下载、超大数量精度、搜索模式与模糊音、设置保存、名称转义、语言切换、合成及登录注册参数保持不变。浏览器测试使用本地模拟 API，不等同于完整整合包实测；完整导出覆盖率及真实游戏合成仍需实际验证。不要把开发映射 JAR 当成安装包。
 
 从本仓库根目录运行；需要 Node.js 22.13+ / 24+、完整的 Java 17 和 Java 21 工具链，以及可运行仓库 Gradle Wrapper 的 Java 25。NeoForm 使用 Java 21 重新编译 Minecraft，因此精简掉 `lib/ct.sym` 的系统 JDK 不适用：
 

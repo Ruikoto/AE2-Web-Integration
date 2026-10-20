@@ -7,6 +7,30 @@
 
 </div>
 
+## 中文说明：1.20.1 旧版网页增强
+
+适用于 **Minecraft 1.20.1 / Forge / `ae2webintegration-1.2.0-pre-forge-1.20.1.jar`**。提供独立的浏览器脚本与客户端名称导出器，无需替换服务端 JAR；已有「齿轮盛宴」用户反馈中文物品名显示成功。
+
+| 下载入口 | 版本与用途 |
+| --- | --- |
+| [安装／更新最新版油猴脚本](https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/heads/codex/chinese-item-names-client/tools/name-localization/ae2web-names.user.js) | **v1.3.0**：网页汉化、拼音搜索和库存导出 |
+| [下载客户端中文名称导出器](https://github.com/Ruikoto/AE2-Web-Integration/raw/refs/tags/name-localization-v1.0.0/tools/name-localization/releases/v1.0.0/ae2web-local-names-1.0.0-mc1.20.1-client-only.jar) | **v1.0.0**：只装到本地客户端，用于生成中文名称表 |
+| [完整中文使用说明](tools/name-localization/README.md) | 安装、名称导出与导入、双拼、模糊音、库存 JSON 格式及常见问题 |
+
+使用方法：
+
+1. 在浏览器安装 Tampermonkey（油猴），点击上方脚本链接安装或更新，然后刷新 AE2 网页。更新现有同名脚本，不要同时启用多个副本。
+2. 在网页右侧“设置”列点击 **中文显示**。界面汉化默认开启，面板默认收起，底部悬浮信息栏默认隐藏；都可以在面板中控制。
+3. 需要中文物品名时，将名称导出器 JAR 放进**本地整合包客户端**的 `mods/`，使用相同整合包与汉化资源，切换简体中文并进入世界。运行 `/ae2webnames sample` 测试背包物品，或 `/ae2webnames export confirm` 完整导出；将游戏目录 `ae2webnames/` 中生成的 JSON 导入网页，开启中文名并刷新。
+4. 在“中文显示 → 搜索模式”选择**全拼／小鹤双拼**。“铁锭”可用全拼 `tieding`、首字母 `td` 或小鹤 `tpdk` 查找；展开“模糊音”可单独设置十组规则，默认关闭。
+5. 选择网络后，点击 **导出当前库存 JSON**，下载完整库存及 `craftable` 可合成属性，不受搜索和筛选影响。数量以字符串保存，避免超大库存丢失精度。
+
+已有名称表会随脚本升级保留，无需重新导出或更换 JAR。仅使用界面汉化或库存导出时，不需要客户端名称导出器；拼音搜索需要条目已有中文名称。名称表和设置保存在当前浏览器，不上传服务器。
+
+[v1.0.0 发行包与校验值](https://github.com/Ruikoto/AE2-Web-Integration/releases/tag/name-localization-v1.0.0)用于下载客户端工具；包内脚本为旧版，**全拼、双拼、模糊音和库存导出请安装上方最新版脚本**。这是旧版网页专用增强，不适用于仓库较新版本的网页 UI。
+
+## About AE2 Web Integration
+
 An AE2 add-on that lets you access your terminal from a web browser, wherever you are! You can browse your
 network, submit crafting requests, view and cancel crafting jobs, track their progress, and even send updates
 through a Discord webhook.
@@ -50,11 +74,10 @@ password accordingly!
 
 ### Chinese names and UI for the legacy 1.20.1 panel
 
-For `1.2.0-pre-forge-1.20.1`, the optional [Chinese localization tools](tools/name-localization/README.md)
-provide a client-side name exporter and a browser userscript. They require no server JAR replacement.
-The script translates the legacy UI, imports local item names, and adds a collapsible **中文显示** button
-to the settings column. See the [v1.0.0 release](https://github.com/Ruikoto/AE2-Web-Integration/releases/tag/name-localization-v1.0.0)
-for downloads. The exporter is installed only in the Minecraft client; it is separate from the server mod.
+For `1.2.0-pre-forge-1.20.1`, see the [Chinese installation guide](tools/name-localization/README.md).
+The latest userscript (v1.3.0) translates the legacy UI, imports local item names, supports full pinyin,
+Xiaohe double pinyin and optional fuzzy sounds, and exports complete inventory JSON with craftability flags.
+No server JAR replacement is required. The separate name exporter is installed only in the Minecraft client.
 
 ### Optional item icons
 
