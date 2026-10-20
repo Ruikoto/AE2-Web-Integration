@@ -39,6 +39,7 @@ async function fixture(t, options = {}) {
     const window = dom.window;
     if (options.dialogs) Object.assign(window, options.dialogs);
     if (options.Chart) window.Chart = options.Chart;
+    if (options.search) window.shouldDisplay = options.search(window);
     Object.defineProperty(window, 'indexedDB', { value: options.storage || new IDBFactory() });
     const $ = jquery(window);
     window.jQuery = window.$ = $;
@@ -419,4 +420,101 @@ test('UI dialogs preserve return values and defaults; chart data labels and CPU 
     await wait();
     assert.equal(cpu.textContent, 'Refresh：空闲');
     assert.equal(grid.textContent, `当前网络：${key} [所有者：Settings][合成 CPU：5][默认][已记录]`);
+});
+
+function legacySearch(window) {
+    window.filteringOptions = { searchString: '', storedCraftable: 2, itemsType: 2 };
+    window.searchStringChanged = (input) => (window.filteringOptions.searchString = input.value.toLowerCase());
+    return (resource) => {
+        const filters = window.filteringOptions;
+        if (filters.storedCraftable !== 2 && resource.craftable !== (filters.storedCraftable === 1)) return false;
+        if (filters.itemsType !== 2 && (resource.itemid === 'ae2fc:fluid_drop:0') !== (filters.itemsType === 1))
+            return false;
+        return !filters.searchString || resource.itemname.toLowerCase().includes(filters.searchString);
+    };
+}
+const searchPage = {
+    html: '<!doctype html><html><body><input id="searchtext"></body></html>',
+    search: legacySearch
+};
+
+test('pinyin search supports full syllables, initials, partial endings, polyphonic characters and mixed names', async (t) => {
+    const f = await fixture(t, searchPage);
+    const resource = item({ itemname: '铁锭' });
+    function matches(name, query) {
+        f.window.searchStringChanged({ value: query });
+        return f.window.shouldDisplay({ ...resource, itemname: name });
+    }
+    for (const query of ['铁', 'tieding', 'td', 'ding', 'tied', 'tie锭', '  TIE DING  ', 'tiědìng'])
+        assert.equal(matches('铁锭', query), true, query);
+    assert.equal(matches('重型铁锭', 'zhongxtd'), true);
+    assert.equal(matches('重型铁锭', 'chongxing'), true);
+    assert.equal(matches('铝锭', 'lvd'), true);
+    assert.equal(matches('铝锭', 'lüding'), true);
+    assert.equal(matches('ME 64k 铁锭', 'me64ktd'), true);
+    assert.equal(matches('§a铁§r锭', 'tieding'), true);
+    assert.equal(matches('铁&amp;锭', 'tie&ding'), true);
+    assert.equal(matches('Iron Ingot', 'iron'), true);
+    assert.equal(matches('自定义铁锭', 'zdyt'), true);
+    for (const query of ['tongding', 'ttd', 'ieding', 'not-a-match', 'an'.repeat(1000)])
+        assert.equal(matches('铁锭', query), false, query.slice(0, 24));
+});
+
+test('pinyin search preserves original inventory/type filters and never mutates resources or search state', async (t) => {
+    const f = await fixture(t, searchPage);
+    const filters = f.window.filteringOptions;
+    const resource = Object.freeze(item({ itemname: '铁锭' }));
+    const original = JSON.stringify(resource);
+    filters.searchString = 'td';
+    assert.equal(f.window.shouldDisplay(resource), true);
+    filters.storedCraftable = 0;
+    assert.equal(f.window.shouldDisplay(resource), false);
+    filters.storedCraftable = 1;
+    assert.equal(f.window.shouldDisplay(resource), true);
+    filters.itemsType = 1;
+    assert.equal(f.window.shouldDisplay(resource), false);
+    const fluid = Object.freeze({ ...resource, itemid: 'ae2fc:fluid_drop:0' });
+    assert.equal(f.window.shouldDisplay(fluid), true);
+    assert.equal(JSON.stringify(resource), original);
+    assert.deepEqual(JSON.parse(JSON.stringify(filters)), { searchString: 'td', storedCraftable: 1, itemsType: 1 });
+    assert.deepEqual(f.requests, []);
+});
+
+test('cached pinyin follows changed names and queries, and names toggle falls back to visible English names', async (t) => {
+    const f = await fixture(t, searchPage);
+    await f.importTable(table());
+    await f.toggle();
+    const resource = (await f.request()).data[0];
+    f.window.filteringOptions.searchString = 'td';
+    assert.equal(f.window.shouldDisplay(resource), true);
+    resource.itemname = '铜锭';
+    f.window.filteringOptions.searchString = 'tieding';
+    assert.equal(f.window.shouldDisplay(resource), false);
+    f.window.filteringOptions.searchString = 'tongding';
+    assert.equal(f.window.shouldDisplay(resource), true);
+    await f.toggle();
+    const english = (await f.request()).data[0];
+    assert.equal(english.itemname, 'Iron Ingot');
+    assert.equal(f.window.shouldDisplay(english), false);
+    f.window.filteringOptions.searchString = 'iron';
+    assert.equal(f.window.shouldDisplay(english), true);
+    f.window.filteringOptions.searchString = '';
+    assert.equal(f.window.shouldDisplay(english), true);
+});
+
+test('offline pinyin dictionary matches its pinned provenance and retains its standalone license', () => {
+    const crypto = require('node:crypto');
+    const metadata = JSON.parse(fs.readFileSync(path.join(__dirname, '../vendor/pinyin-match.json')));
+    const dictionary = script.match(/const dictionary = (\{[^\n]+\});/)[1];
+    assert.equal(crypto.createHash('sha256').update(dictionary).digest('hex'), metadata.dictionarySha256);
+    const license = fs.readFileSync(path.join(__dirname, '../vendor/pinyin-match.LICENSE'), 'utf8');
+    const embedded = script.split('/* pinyin-match 1.2.10: simplified dictionary data only.')[1].split('*/')[0];
+    assert.equal(
+        embedded
+            .split('\n')
+            .map((line) => line.replace(/^\s*\* ?/, ''))
+            .join('\n')
+            .trim(),
+        license.trim()
+    );
 });

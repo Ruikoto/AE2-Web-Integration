@@ -203,6 +203,44 @@ for (const chineseUi of [false, true])
             await search.dispatchEvent('keyup');
             assert.equal(await page.locator('#terminalcontent td.storage').count(), 1);
             assert.match(await page.locator('#terminalcontent').innerText(), chineseUi ? /库存：64/ : /Stored: 64/);
+            for (const query of ['tieding', 'TD', 'ding', 'tie ding', 'tied', 'tiědìng']) {
+                await search.fill(query);
+                await search.dispatchEvent('keyup');
+                assert.equal(await page.locator('#terminalcontent td.storage').count(), 1, query);
+                await page.locator('#terminalcontent').getByText('铁锭', { exact: true }).waitFor();
+            }
+            await search.fill('tongding');
+            await search.dispatchEvent('keyup');
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 0);
+            await search.fill('td');
+            await search.dispatchEvent('keyup');
+            for (const count of [0, 1, 1]) {
+                await page.locator('#storedCraftableButton').click();
+                assert.equal(await page.locator('#terminalcontent td.storage').count(), count);
+            }
+            for (const count of [1, 0, 1]) {
+                await page.locator('#itemsFluidsButton').click();
+                assert.equal(await page.locator('#terminalcontent td.storage').count(), count);
+            }
+            if (chineseUi) {
+                const benchmark = await page.evaluate(`(() => {
+                    const previous = filteringOptions.searchString;
+                    const names = ['铁锭', '铜锭', '重型钢板', 'ME 64k 存储元件', '熔融铝'];
+                    const items = Array.from({length: 21242}, (_, i) => ({itemname: names[i % 5], itemid: 'test:sample', craftable: true}));
+                    const start = performance.now();
+                    filteringOptions.searchString = 'tieding';
+                    const full = items.filter(shouldDisplay).length;
+                    const first = performance.now();
+                    filteringOptions.searchString = 'td';
+                    const initials = items.filter(shouldDisplay).length;
+                    const done = performance.now();
+                    filteringOptions.searchString = previous;
+                    return {full, initials, firstMs: first-start, cachedNamesMs: done-first};
+                })()`);
+                assert.equal(benchmark.full, 4249);
+                assert.equal(benchmark.initials, 8498);
+                t.diagnostic(`Local Chromium search benchmark (21,242 synthetic items): ${JSON.stringify(benchmark)}`);
+            }
             page.once('dialog', (dialog) => {
                 assert.equal(dialog.message(), chineseUi ? '请输入要合成的数量：' : 'How much to order?');
                 assert.equal(dialog.defaultValue(), '1');
