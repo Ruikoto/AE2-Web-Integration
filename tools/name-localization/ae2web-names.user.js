@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         AE2 Web Integration 1.2.0-pre 中文物品名
 // @namespace    ae2web-local-names
-// @version      1.2.0
-// @description  旧版网页汉化、本地物品名、全拼/小鹤双拼与可选模糊音搜索；不修改服务器或请求。
+// @version      1.3.0
+// @description  旧版网页汉化、拼音搜索与库存 JSON 导出；只读取库存，不修改服务器数据。
 // @match        http://127.0.0.1:2324/*
 // @match        http://localhost:2324/*
 // @match        http://k.rainplay.cn/*
@@ -49,6 +49,8 @@
     let status;
     let toggle;
     let uiToggle;
+    let exportButton;
+    let exporting = false;
     let database;
     let restored = Promise.resolve();
 
@@ -206,6 +208,109 @@
         } finally {
             busy = false;
             toggle.disabled = !table || !hooked;
+        }
+    }
+
+    function parseInventory(text) {
+        return JSON.parse(text, (key, value, context) => {
+            if (key !== 'quantity' || typeof value !== 'number') return value;
+            // Preserve the server's exact long integer before JavaScript rounds it.
+            if (context?.source && /^(0|[1-9]\d*)$/.test(context.source)) return context.source;
+            if (!Number.isSafeInteger(value) || value < 0)
+                throw new Error('库存数量超过浏览器安全精度，无法无损导出；请更新浏览器后重试。');
+            return String(value);
+        });
+    }
+
+    async function exportInventory() {
+        if (exporting) return;
+        const grid = window.selectedGrid;
+        if (typeof grid !== 'string' || !grid || grid === '-1') {
+            update('请先登录终端并选择要导出的网络。');
+            return;
+        }
+        exporting = true;
+        exportButton.disabled = true;
+        exportButton.textContent = '正在导出库存…';
+        update('正在读取当前网络的完整库存…');
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        try {
+            await restored;
+            const names = enabled ? entries : null;
+            const response = await fetch(new URL(`api/grids/${encodeURIComponent(grid)}/items`, base), {
+                method: 'GET',
+                credentials: 'same-origin',
+                cache: 'no-store',
+                redirect: 'error',
+                headers: { Accept: 'application/json' },
+                signal: controller.signal
+            });
+            if (!response.ok) throw new Error(`无法读取库存（HTTP ${response.status}），请检查登录状态和网络权限。`);
+            const envelope = parseInventory(await response.text());
+            if (envelope?.status !== 'OK' || !Array.isArray(envelope.data))
+                throw new Error(
+                    `库存接口未返回有效列表（${typeof envelope?.status === 'string' ? envelope.status : '无效响应'}），请检查登录状态和网络权限。`
+                );
+            if (window.selectedGrid !== grid) throw new Error('导出期间网络已切换，请重新导出。');
+            const items = envelope.data.map((item) => {
+                if (
+                    !item ||
+                    typeof item.itemname !== 'string' ||
+                    typeof item.itemid !== 'string' ||
+                    (item.itemKey != null && typeof item.itemKey !== 'string') ||
+                    typeof item.quantity !== 'string' ||
+                    !/^(0|[1-9]\d*)$/.test(item.quantity) ||
+                    typeof item.craftable !== 'boolean'
+                )
+                    throw new Error('库存条目的名称、数量或可合成属性无效，未生成导出文件。');
+                const local = names?.get(item.itemKey);
+                const localized =
+                    local && local.itemid === item.itemid && (!item.identityStatus || item.identityStatus === 'OK');
+                return {
+                    itemKey: item.itemKey ?? null,
+                    itemid: item.itemid,
+                    itemname: localized ? local.name : item.itemname,
+                    serverName: item.itemname,
+                    quantity: item.quantity,
+                    craftable: item.craftable,
+                    ...(typeof item.identityStatus === 'string' ? { identityStatus: item.identityStatus } : {})
+                };
+            });
+            const exportedAt = new Date().toISOString();
+            const snapshot = {
+                format: 'ae2web-inventory',
+                formatVersion: 1,
+                targetMod: target,
+                exportedAt,
+                gridKey: grid,
+                localNamesEnabled: names !== null,
+                itemCount: items.length,
+                items
+            };
+            const blob = new Blob([JSON.stringify(snapshot, null, 2) + '\n'], {
+                type: 'application/json;charset=utf-8'
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ae2web-inventory-${grid.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 64)}-${exportedAt.replace(/[:.]/g, '-')}.json`;
+            link.hidden = true;
+            document.body.append(link);
+            try {
+                link.click();
+            } finally {
+                link.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 30000);
+            }
+            update(`已生成 ${items.length} 条完整库存的 JSON 下载，包含数量及可合成属性。`);
+        } catch (error) {
+            update(controller.signal.aborted ? '读取库存超时，请重试。' : `导出失败：${error.message}`);
+        } finally {
+            clearTimeout(timeout);
+            exporting = false;
+            exportButton.disabled = false;
+            exportButton.textContent = '导出当前库存 JSON';
         }
     }
 
@@ -373,6 +478,14 @@
         }
         showFooter(footerVisible);
         footerToggle.addEventListener('click', () => showFooter(footer?.hidden === true));
+        exportButton = document.createElement('button');
+        exportButton.type = 'button';
+        exportButton.id = 'ae2web-export-inventory';
+        exportButton.textContent = '导出当前库存 JSON';
+        exportButton.disabled = !document.getElementById('gridselection');
+        exportButton.title = '读取当前选中网络的完整库存，不受搜索和筛选影响。';
+        exportButton.style.cssText = 'display:block;width:100%;margin-top:10px';
+        exportButton.addEventListener('click', exportInventory);
         const launcher = document.createElement('button');
         launcher.type = 'button';
         launcher.id = 'ae2web-local-names-button';
@@ -428,6 +541,7 @@
             clear,
             uiToggle,
             footerToggle,
+            exportButton,
             searchControls(),
             close
         );

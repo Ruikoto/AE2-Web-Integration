@@ -37,6 +37,7 @@ async function fixture(t, options = {}) {
     });
     t.after(() => dom.window.close());
     const window = dom.window;
+    if (options.setup) options.setup(window);
     for (const [key, value] of Object.entries(options.localValues || {})) window.localStorage.setItem(key, value);
     if (options.blockLocalStorage)
         Object.defineProperty(window, 'localStorage', {
@@ -660,4 +661,188 @@ test('offline pinyin dictionary matches its pinned provenance and retains its st
             .trim(),
         license.trim()
     );
+});
+
+async function inventoryFixture(t, options = {}) {
+    const downloads = [];
+    const fetches = [];
+    const payload = options.payload ?? response([item()]);
+    const f = await fixture(t, {
+        html: '<!doctype html><html><body><select id="gridselection"></select></body></html>',
+        setup(window) {
+            window.selectedGrid = options.grid ?? key;
+            window.currentWindow = 2;
+            window.globalItemList = Object.freeze([Object.freeze(item({ quantity: 999 }))]);
+            window.fetch = async (url, settings) => {
+                fetches.push({ url: String(url), settings });
+                if (options.pending) await options.pending;
+                if (options.networkError) throw new Error('network unavailable');
+                return {
+                    ok: !options.httpStatus || options.httpStatus === 200,
+                    status: options.httpStatus || 200,
+                    text: async () => (typeof payload === 'string' ? payload : JSON.stringify(payload))
+                };
+            };
+            const blobs = new Map();
+            window.URL.createObjectURL = (blob) => {
+                const url = `blob:test-${blobs.size}`;
+                blobs.set(url, blob);
+                return url;
+            };
+            window.URL.revokeObjectURL = () => {};
+            window.HTMLAnchorElement.prototype.click = function () {
+                downloads.push({ filename: this.download, blob: blobs.get(this.href) });
+            };
+        }
+    });
+    async function exportNow() {
+        f.window.document.getElementById('ae2web-export-inventory').click();
+        await wait();
+    }
+    async function readDownload(index = 0) {
+        const text = await new Promise((resolve, reject) => {
+            const reader = new f.window.FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsText(downloads[index].blob);
+        });
+        return JSON.parse(text);
+    }
+    return { ...f, downloads, fetches, exportNow, readDownload };
+}
+
+test('inventory export reads fresh complete inventory and keeps true/false/zero stock and exact identities', async (t) => {
+    const resources = [
+        item(),
+        item({ itemKey: otherKey, itemname: 'Renamed iron', craftable: false, quantity: 3 }),
+        item({ itemKey: null, itemname: 'Recipe only', quantity: 0, identityStatus: 'UNKNOWN' }),
+        item({
+            itemKey: 'CCCCCCCCCCCCCCCCCCCCCA',
+            itemid: 'ae2fc:fluid_drop:0',
+            itemname: 'Lava',
+            quantity: 12000,
+            craftable: false
+        })
+    ];
+    const f = await inventoryFixture(t, { payload: response(resources) });
+    f.window.filteringOptions = { searchString: 'not-a-match', storedCraftable: 0, itemsType: 1 };
+    await f.exportNow();
+    assert.equal(f.downloads.length, 1);
+    const snapshot = await f.readDownload();
+    assert.equal(snapshot.format, 'ae2web-inventory');
+    assert.equal(snapshot.formatVersion, 1);
+    assert.equal(snapshot.gridKey, key);
+    assert.equal(snapshot.itemCount, 4);
+    assert.equal(snapshot.localNamesEnabled, false);
+    assert.deepEqual(
+        snapshot.items.map((i) => [i.itemKey, i.quantity, i.craftable]),
+        [
+            [key, '64', true],
+            [otherKey, '3', false],
+            [null, '0', true],
+            ['CCCCCCCCCCCCCCCCCCCCCA', '12000', false]
+        ]
+    );
+    assert.equal(snapshot.items[2].identityStatus, 'UNKNOWN');
+    assert.equal(snapshot.items[3].itemid, 'ae2fc:fluid_drop:0');
+    assert.match(f.downloads[0].filename, /^ae2web-inventory-.*\.json$/);
+    assert.equal(f.downloads[0].blob.type, 'application/json;charset=utf-8');
+    assert.equal(f.fetches.length, 1);
+    assert.equal(f.fetches[0].url, `http://localhost:2324/api/grids/${key}/items`);
+    assert.equal(f.fetches[0].settings.method, 'GET');
+    assert.equal(f.fetches[0].settings.credentials, 'same-origin');
+    assert.equal(f.fetches[0].settings.cache, 'no-store');
+    assert.equal(f.fetches[0].settings.body, undefined);
+    assert.equal(f.window.globalItemList[0].quantity, 999);
+    assert.equal(f.window.currentWindow, 2);
+    assert.equal(f.window.filteringOptions.searchString, 'not-a-match');
+    assert.deepEqual(f.requests, []);
+});
+
+test('inventory export uses exact local names without HTML escaping and retains server names and renamed variants', async (t) => {
+    const resources = [
+        item(),
+        item({ itemKey: otherKey, itemname: 'My renamed ingot', craftable: false }),
+        item({ identityStatus: 'AMBIGUOUS' })
+    ];
+    const f = await inventoryFixture(t, { payload: response(resources) });
+    await f.importTable(table('<铜 & 铁>'));
+    await f.toggle();
+    await f.exportNow();
+    const snapshot = await f.readDownload();
+    assert.equal(snapshot.localNamesEnabled, true);
+    assert.equal(snapshot.items[0].itemname, '<铜 & 铁>');
+    assert.equal(snapshot.items[0].serverName, 'Iron Ingot');
+    assert.equal(snapshot.items[1].itemname, 'My renamed ingot');
+    assert.equal(snapshot.items[2].itemname, 'Iron Ingot');
+    assert.equal(snapshot.items[2].identityStatus, 'AMBIGUOUS');
+    assert.equal(f.window.document.querySelectorAll('#ae2web-local-names img').length, 0);
+});
+
+test('inventory export preserves long integer quantities and refuses rounded numbers in older browsers', async (t) => {
+    const payload = JSON.stringify(response([item()])).replace('"quantity":64', '"quantity":9223372036854775807');
+    const f = await inventoryFixture(t, { payload });
+    await f.exportNow();
+    assert.equal((await f.readDownload()).items[0].quantity, '9223372036854775807');
+    const legacy = await inventoryFixture(t, { payload });
+    const parse = legacy.window.JSON.parse;
+    legacy.window.JSON.parse = (text, reviver) =>
+        parse(text, function (key, value) {
+            return reviver ? reviver.call(this, key, value) : value;
+        });
+    await legacy.exportNow();
+    assert.equal(legacy.downloads.length, 0);
+    assert.match(legacy.status(), /安全精度/);
+    const safe = await inventoryFixture(t);
+    const safeParse = safe.window.JSON.parse;
+    safe.window.JSON.parse = (text, reviver) =>
+        safeParse(text, function (key, value) {
+            return reviver ? reviver.call(this, key, value) : value;
+        });
+    await safe.exportNow();
+    assert.equal((await safe.readDownload()).items[0].quantity, '64');
+});
+
+test('inventory export accepts empty networks and rejects errors or missing craftable flags without stale fallback', async (t) => {
+    const empty = await inventoryFixture(t, { payload: response([]) });
+    await empty.exportNow();
+    assert.equal((await empty.readDownload()).itemCount, 0);
+    for (const options of [
+        { httpStatus: 401 },
+        { networkError: true },
+        { payload: { status: 'UNAUTHORIZED' } },
+        { payload: '<html>login</html>' },
+        { payload: response({ items: [] }) },
+        { payload: response([item(), item({ craftable: undefined })]) }
+    ]) {
+        const f = await inventoryFixture(t, options);
+        await f.exportNow();
+        assert.equal(f.downloads.length, 0);
+        assert.match(f.status(), /导出失败/);
+        assert.equal(f.window.document.getElementById('ae2web-export-inventory').disabled, false);
+        assert.equal(f.window.globalItemList[0].quantity, 999);
+    }
+});
+
+test('inventory export guards selection changes and duplicate clicks while preserving both networks', async (t) => {
+    const noGrid = await inventoryFixture(t, { grid: -1 });
+    await noGrid.exportNow();
+    assert.equal(noGrid.fetches.length, 0);
+    assert.match(noGrid.status(), /选择/);
+    let release;
+    const pending = new Promise((resolve) => {
+        release = resolve;
+    });
+    const f = await inventoryFixture(t, { pending });
+    await f.exportNow();
+    assert.equal(f.window.document.getElementById('ae2web-export-inventory').disabled, true);
+    await f.exportNow();
+    assert.equal(f.fetches.length, 1);
+    f.window.selectedGrid = otherKey;
+    release();
+    await wait();
+    assert.equal(f.downloads.length, 0);
+    assert.match(f.status(), /网络已切换/);
+    assert.equal(f.window.selectedGrid, otherKey);
+    assert.equal(f.window.document.getElementById('ae2web-export-inventory').disabled, false);
 });

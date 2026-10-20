@@ -12,6 +12,8 @@ const key = 'AAAAAAAAAAAAAAAAAAAAAA';
 const renamedKey = 'BBBBBBBBBBBBBBBBBBBBBA';
 const unsafeKey = 'CCCCCCCCCCCCCCCCCCCCCA';
 const cpuKey = 'test/cpu:1';
+const recipeKey = 'DDDDDDDDDDDDDDDDDDDDDA';
+const largeKey = 'EEEEEEEEEEEEEEEEEEEEEA';
 
 for (const chineseUi of [false, true])
     test(
@@ -48,7 +50,22 @@ for (const chineseUi of [false, true])
                     quantity: 1,
                     craftable: false
                 },
-                { itemKey: unsafeKey, itemid: 'test:special', itemname: 'Special item', quantity: 8, craftable: false }
+                { itemKey: unsafeKey, itemid: 'test:special', itemname: 'Special item', quantity: 8, craftable: false },
+                {
+                    itemKey: recipeKey,
+                    itemid: 'test:recipe_only',
+                    itemname: 'Recipe only',
+                    quantity: 0,
+                    craftable: true
+                },
+                // The HTTP response sends this as a JSON number, as the server does for Java longs.
+                {
+                    itemKey: largeKey,
+                    itemid: 'test:large',
+                    itemname: 'Huge Stock',
+                    quantity: '9007199254740993',
+                    craftable: false
+                }
             ];
             const requests = [];
             const server = http.createServer(async (request, response) => {
@@ -102,7 +119,12 @@ for (const chineseUi of [false, true])
                 }
                 response
                     .writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' })
-                    .end(JSON.stringify({ status: 'OK', data }));
+                    .end(
+                        JSON.stringify({ status: 'OK', data }).replace(
+                            '"quantity":"9007199254740993"',
+                            '"quantity":9007199254740993'
+                        )
+                    );
             });
             await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
             t.after(() => new Promise((resolve) => server.close(resolve)));
@@ -283,6 +305,44 @@ for (const chineseUi of [false, true])
             assert.equal(await page.locator('#terminalcontent td.storage').count(), 0);
             await searchMode.selectOption('xiaohe');
             assert.equal(await page.locator('#terminalcontent td.storage').count(), 1);
+            await page.locator('#storedCraftableButton').click();
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 0);
+            const itemReads = requests.filter((request) => request.path.endsWith('/items')).length;
+            const downloaded = page.waitForEvent('download');
+            await panel.getByRole('button', { name: '导出当前库存 JSON', exact: true }).click();
+            const download = await downloaded;
+            assert.match(download.suggestedFilename(), /^ae2web-inventory-.*\.json$/);
+            const snapshot = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
+            assert.equal(snapshot.format, 'ae2web-inventory');
+            assert.equal(snapshot.gridKey, key);
+            assert.equal(snapshot.itemCount, resources.length);
+            assert.equal(snapshot.localNamesEnabled, true);
+            const exported = new Map(snapshot.items.map((item) => [item.itemKey, item]));
+            assert.deepEqual(exported.get(key), {
+                itemKey: key,
+                itemid: 'minecraft:iron_ingot',
+                itemname: '铁锭',
+                serverName: 'Iron Ingot',
+                quantity: '64',
+                craftable: true
+            });
+            assert.equal(exported.get(renamedKey).craftable, false);
+            assert.equal(exported.get(renamedKey).itemname, 'My renamed ingot');
+            assert.equal(exported.get(recipeKey).quantity, '0');
+            assert.equal(exported.get(recipeKey).craftable, true);
+            assert.equal(exported.get(largeKey).quantity, '9007199254740993');
+            assert.equal(exported.get(unsafeKey).itemname, names.entries[1].name);
+            assert.equal(
+                await page.locator('#terminalcontent td.storage').count(),
+                0,
+                'export must not change filters or refresh the visible inventory'
+            );
+            assert.equal(requests.filter((request) => request.path.endsWith('/items')).length, itemReads + 1);
+            assert.equal(requests.at(-1).method, 'GET');
+            assert.equal(await search.inputValue(), 'tpdb');
+            await page.locator('#storedCraftableButton').click();
+            await page.locator('#storedCraftableButton').click();
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 1);
             page.once('dialog', (dialog) => {
                 assert.equal(dialog.message(), chineseUi ? '请输入要合成的数量：' : 'How much to order?');
                 assert.equal(dialog.defaultValue(), '1');
@@ -403,7 +463,11 @@ for (const chineseUi of [false, true])
                 await page.locator('#currentgrid').click();
                 await page.locator('#gridselection').selectOption(key);
                 await page.locator('#terminalcontent').getByText('铁锭', { exact: true }).waitFor();
-                await page.locator('#terminalcontent').getByRole('button', { name: 'order', exact: true }).waitFor();
+                await page
+                    .locator('#terminalcontent td.storage')
+                    .filter({ hasText: '铁锭' })
+                    .getByRole('button', { name: 'order', exact: true })
+                    .waitFor();
                 await panel.getByRole('button', { name: '开启界面汉化', exact: true }).click();
                 await page.getByRole('textbox', { name: '搜索终端物品' }).waitFor();
             }
