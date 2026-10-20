@@ -37,6 +37,13 @@ async function fixture(t, options = {}) {
     });
     t.after(() => dom.window.close());
     const window = dom.window;
+    for (const [key, value] of Object.entries(options.localValues || {})) window.localStorage.setItem(key, value);
+    if (options.blockLocalStorage)
+        Object.defineProperty(window, 'localStorage', {
+            get() {
+                throw new Error('storage blocked');
+            }
+        });
     if (options.dialogs) Object.assign(window, options.dialogs);
     if (options.Chart) window.Chart = options.Chart;
     if (options.search) window.shouldDisplay = options.search(window);
@@ -438,6 +445,17 @@ const searchPage = {
     search: legacySearch
 };
 
+function setSearchMode(f, value) {
+    const input = f.window.document.getElementById('ae2web-search-mode');
+    input.value = value;
+    input.dispatchEvent(new f.window.Event('change'));
+}
+function setFuzzy(f, pair, checked) {
+    const input = f.window.document.querySelector(`#ae2web-local-names input[type=checkbox][value="${pair}"]`);
+    input.checked = checked;
+    input.dispatchEvent(new f.window.Event('change'));
+}
+
 test('pinyin search supports full syllables, initials, partial endings, polyphonic characters and mixed names', async (t) => {
     const f = await fixture(t, searchPage);
     const resource = item({ itemname: '铁锭' });
@@ -500,6 +518,131 @@ test('cached pinyin follows changed names and queries, and names toggle falls ba
     assert.equal(f.window.shouldDisplay(english), true);
     f.window.filteringOptions.searchString = '';
     assert.equal(f.window.shouldDisplay(english), true);
+});
+
+test('Xiaohe mode covers initials, finals, zero initials and umlaut aliases with live cache invalidation', async (t) => {
+    const f = await fixture(t, searchPage);
+    const resource = item({ itemname: '铁锭' });
+    f.window.filteringOptions.searchString = 'tpdk';
+    assert.equal(f.window.shouldDisplay(resource), false);
+    setSearchMode(f, 'xiaohe');
+    assert.equal(f.window.shouldDisplay(resource), true);
+    function matches(name, query) {
+        f.window.searchStringChanged({ value: query });
+        return f.window.shouldDisplay({ ...resource, itemname: name });
+    }
+    for (const [name, query] of [
+        ['铁锭', 'TP DK'],
+        ['铁锭', 'tpd'],
+        ['铁锭', 'td'],
+        ['铁锭', 'dk'],
+        ['重型', 'vsxk'],
+        ['重型', 'isxk'],
+        ['重型', 'vx'],
+        ['重型', 'zx'],
+        ['金锭', 'jbdk'],
+        ['石英', 'uiyk'],
+        ['红石', 'hsui'],
+        ['存储', 'cyiu'],
+        ['钻石', 'zrui'],
+        ['绿宝石', 'lvbcui'],
+        ['学女略', 'xtnvlt'],
+        ['阿爱安昂奥鹅恩诶而哦欧', 'aaadajahaceeefeweroooz'],
+        ['爱', 'ai'],
+        ['安', 'an'],
+        ['奥', 'ao'],
+        ['恩', 'en'],
+        ['诶', 'ei'],
+        ['欧', 'ou'],
+        ['鱼居区需', 'yujvquxv'],
+        ['鱼居区需', 'yvjuqvxu'],
+        ['ME 64k 铁锭', 'me64ktpdk'],
+        ['§a铁§r锭', 'tpdk'],
+        ['铁锭', '铁dk'],
+        ['Iron Ingot', 'iron'],
+        ['铁锭', '铁锭']
+    ])
+        assert.equal(matches(name, query), true, `${name}: ${query}`);
+    assert.equal(matches('铁锭', 'tieding'), false);
+    assert.equal(matches('铁锭', 'tpdb'), false);
+    setSearchMode(f, 'pinyin');
+    f.window.filteringOptions.searchString = 'tpdk';
+    assert.equal(f.window.shouldDisplay(resource), false);
+    f.window.filteringOptions.searchString = 'tieding';
+    assert.equal(f.window.shouldDisplay(resource), true);
+});
+
+test('fuzzy sounds apply per syllable in both modes, are reversible, and combine only when enabled', async (t) => {
+    const f = await fixture(t, searchPage);
+    const cases = [
+        ['z/zh', '紫金', 'zhijin', 'vijb'],
+        ['c/ch', '磁铁', 'chitie', 'iitp'],
+        ['s/sh', '石英', 'siying', 'siyk'],
+        ['n/l', '铝锭', 'nvding', 'nvdk'],
+        ['f/h', '方块', 'hangkuai', 'hhkk'],
+        ['an/ang', '钢板', 'ganban', 'gjbj'],
+        ['en/eng', '冷却', 'lenque', 'lfqt'],
+        ['in/ing', '金锭', 'jingding', 'jkdk'],
+        ['ian/iang', '线圈', 'xiangquan', 'xlqr'],
+        ['uan/uang', '黄铜', 'huantong', 'hrts']
+    ];
+    for (const mode of ['pinyin', 'xiaohe']) {
+        setSearchMode(f, mode);
+        for (const [pair, name, full, double] of cases) {
+            const resource = item({ itemname: name });
+            f.window.filteringOptions.searchString = mode === 'pinyin' ? full : double;
+            assert.equal(f.window.shouldDisplay(resource), false, `${mode}, disabled ${pair}`);
+            setFuzzy(f, pair, true);
+            assert.equal(f.window.shouldDisplay(resource), true, `${mode}, enabled ${pair}`);
+            setFuzzy(f, pair, false);
+            assert.equal(f.window.shouldDisplay(resource), false, `${mode}, disabled again ${pair}`);
+        }
+    }
+    setSearchMode(f, 'pinyin');
+    const resource = Object.freeze(item({ itemname: '钢锭板' }));
+    f.window.filteringOptions.searchString = 'gandinban';
+    setFuzzy(f, 'an/ang', true);
+    assert.equal(f.window.shouldDisplay(resource), false);
+    setFuzzy(f, 'in/ing', true);
+    assert.equal(f.window.shouldDisplay(resource), true);
+    f.window.filteringOptions.searchString = 'xiangquan';
+    assert.equal(f.window.shouldDisplay(item({ itemname: '线圈' })), false, 'an/ang must not silently enable ian/iang');
+    assert.equal(resource.itemname, '钢锭板');
+    assert.deepEqual(f.requests, []);
+});
+
+test('search mode and fuzzy options persist per panel and survive missing or invalid browser storage', async (t) => {
+    const f = await fixture(t, searchPage);
+    assert.equal(f.window.document.getElementById('ae2web-search-mode').value, 'pinyin');
+    assert.equal(f.window.document.querySelectorAll('#ae2web-local-names input[type=checkbox]:checked').length, 0);
+    setSearchMode(f, 'xiaohe');
+    setFuzzy(f, 'in/ing', true);
+    const key = 'ae2web-search:http://localhost:2324/';
+    const value = f.window.localStorage.getItem(key);
+    assert.deepEqual(JSON.parse(value), { mode: 'xiaohe', fuzzy: ['in/ing'] });
+    const restored = await fixture(t, { ...searchPage, localValues: { [key]: value } });
+    assert.equal(restored.window.document.getElementById('ae2web-search-mode').value, 'xiaohe');
+    restored.window.filteringOptions.searchString = 'tpdb';
+    assert.equal(restored.window.shouldDisplay(item({ itemname: '铁锭' })), true);
+    const other = await fixture(t, {
+        ...searchPage,
+        url: 'http://localhost:2324/other/',
+        localValues: { [key]: value }
+    });
+    assert.equal(other.window.document.getElementById('ae2web-search-mode').value, 'pinyin');
+    for (const saved of ['{broken', 'null', JSON.stringify({ mode: 'other', fuzzy: ['invalid'] })]) {
+        const invalid = await fixture(t, { ...searchPage, localValues: { [key]: saved } });
+        assert.equal(invalid.window.document.getElementById('ae2web-search-mode').value, 'pinyin');
+        assert.equal(
+            invalid.window.document.querySelectorAll('#ae2web-local-names input[type=checkbox]:checked').length,
+            0
+        );
+    }
+    const blocked = await fixture(t, { ...searchPage, blockLocalStorage: true });
+    setSearchMode(blocked, 'xiaohe');
+    setFuzzy(blocked, 'in/ing', true);
+    blocked.window.filteringOptions.searchString = 'tpdb';
+    assert.equal(blocked.window.shouldDisplay(item({ itemname: '铁锭' })), true);
 });
 
 test('offline pinyin dictionary matches its pinned provenance and retains its standalone license', () => {

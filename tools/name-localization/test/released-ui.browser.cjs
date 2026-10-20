@@ -241,6 +241,48 @@ for (const chineseUi of [false, true])
                 assert.equal(benchmark.initials, 8498);
                 t.diagnostic(`Local Chromium search benchmark (21,242 synthetic items): ${JSON.stringify(benchmark)}`);
             }
+            const searchMode = panel.getByLabel('搜索模式', { exact: true });
+            await search.fill('tpdk');
+            await search.dispatchEvent('keyup');
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 0);
+            await searchMode.selectOption('xiaohe');
+            assert.equal(
+                await page.locator('#terminalcontent td.storage').count(),
+                1,
+                'mode change reapplies the query without a keypress'
+            );
+            await search.fill('tpdb');
+            await search.dispatchEvent('keyup');
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 0);
+            await panel.locator('details > summary').click();
+            const fuzzyIng = panel.getByLabel('in / ing', { exact: true });
+            await fuzzyIng.check();
+            assert.equal(
+                await page.locator('#terminalcontent td.storage').count(),
+                1,
+                'fuzzy change reapplies the same query'
+            );
+            await fuzzyIng.uncheck();
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 0);
+            await fuzzyIng.check();
+            await page.reload();
+            await panel.getByRole('button', { name: '关闭中文名', exact: true }).waitFor();
+            assert.equal(await searchMode.inputValue(), 'xiaohe');
+            assert.equal(await fuzzyIng.isChecked(), true);
+            await page.locator('#currentgrid').click();
+            await page.locator('#gridselection').selectOption(key);
+            await page.locator('#terminalcontent').getByText('铁锭', { exact: true }).waitFor();
+            await search.fill('tpdb');
+            await search.dispatchEvent('keyup');
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 1);
+            for (const count of [0, 1, 1]) {
+                await page.locator('#storedCraftableButton').click();
+                assert.equal(await page.locator('#terminalcontent td.storage').count(), count);
+            }
+            await searchMode.selectOption('pinyin');
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 0);
+            await searchMode.selectOption('xiaohe');
+            assert.equal(await page.locator('#terminalcontent td.storage').count(), 1);
             page.once('dialog', (dialog) => {
                 assert.equal(dialog.message(), chineseUi ? '请输入要合成的数量：' : 'How much to order?');
                 assert.equal(dialog.defaultValue(), '1');
@@ -261,6 +303,13 @@ for (const chineseUi of [false, true])
                 .getByRole('button', { name: chineseUi ? '开始' : 'Start', exact: true })
                 .waitFor();
             assert.match(await page.locator('#terminalcontent').innerText(), chineseUi ? /需要合成：7/ : /To craft: 7/);
+            await searchMode.selectOption('pinyin');
+            assert.match(
+                await page.locator('#terminalcontent').innerText(),
+                chineseUi ? /需要合成：7/ : /To craft: 7/,
+                'changing preferences must not replace an open plan'
+            );
+            await searchMode.selectOption('xiaohe');
             const cpuButton = page.locator('#terminalCPUListForJob button');
             assert.match(await cpuButton.innerText(), /^Refresh\n/);
             assert.match(await cpuButton.innerText(), chineseUi ? /2 个协处理器/ : /2 Co-Procs/);
@@ -332,6 +381,9 @@ for (const chineseUi of [false, true])
                 await page.setViewportSize({ width: 390, height: 844 });
                 await page.locator('#terminalsubcontainersettings > button.collapsible').click();
                 await launcher.click();
+                await panel.locator('details > summary').click();
+                assert.equal(await panel.getByRole('checkbox').count(), 10);
+                assert.equal(await panel.getByLabel('in / ing', { exact: true }).isChecked(), true);
                 const bounds = await panel.boundingBox();
                 assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 390);
                 assert.ok(bounds.y >= 0 && bounds.y + bounds.height <= 844);
