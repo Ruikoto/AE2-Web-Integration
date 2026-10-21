@@ -7,6 +7,29 @@
 
 </div>
 
+## 本地 Codex 接续开发
+
+**从本仓库的 `codex/chinese-item-names-client` 分支继续开发**；当前中文功能尚未合并到默认 `core` 分支。
+本地打开仓库根目录，Codex 会读取 [AGENTS.md](AGENTS.md) 及中文工具目录的维护说明。
+
+准备 Node.js 24、Git、可通过 `python3` 调用的 Python 3，然后执行：
+
+```sh
+git clone --branch codex/chinese-item-names-client https://github.com/Ruikoto/AE2-Web-Integration.git
+cd AE2-Web-Integration
+npm ci
+npm --prefix tools/name-localization ci --ignore-scripts
+npm --prefix tools/ui-tests ci
+npm --prefix tools/ui-tests exec -- playwright install chromium
+npm --prefix tools/name-localization test
+```
+
+只改浏览器脚本无需 Java。构建客户端导出器还需完整 JDK **17、21、25**，将 `JAVA_HOME` 指向 Temurin 25；
+发行构建命令为 `bash gradlew -p tools/name-localization/client build`，Windows PowerShell 用 `./gradlew.bat` 代替 `bash gradlew`。
+
+**[完整开发环境说明：Windows／Linux、Java 工具链、原版网页测试、云端初始化](tools/dev-environment/README.md)**。
+可复用的 [云端初始化脚本](tools/dev-environment/cloud-setup.sh) 已入库；凭据、下载缓存、个人配置和用户游戏数据不随仓库迁移。
+
 ## 中文说明：1.20.1 旧版网页增强
 
 适用于 **Minecraft 1.20.1 / Forge / `ae2webintegration-1.2.0-pre-forge-1.20.1.jar`**。提供独立的浏览器脚本与客户端名称导出器，无需替换服务端 JAR；已有「齿轮盛宴」用户反馈中文物品名显示成功。
