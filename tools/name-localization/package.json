@@ -1,0 +1,13 @@
+{
+  "name": "ae2web-local-names-tests",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.cjs",
+    "test:browser": "node --test test/*.browser.cjs"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.4",
+    "jquery": "3.7.1",
+    "jsdom": "26.1.0"
+  }
+}

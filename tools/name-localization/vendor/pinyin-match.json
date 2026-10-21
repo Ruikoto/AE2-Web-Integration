@@ -1,0 +1,12 @@
+{
+  "name": "pinyin-match",
+  "version": "1.2.10",
+  "upstream": "https://github.com/xmflswood/pinyin-match",
+  "tarball": "https://registry.npmjs.org/pinyin-match/-/pinyin-match-1.2.10.tgz",
+  "integrity": "sha512-Xo1uMd9n56/xP2EAn7yfApnTmAGCLGqxFIm1fuOnSMty0xhqRF3+ZwVjp2yWFD/alv60RUWa/cZoQSeTSp1HxA==",
+  "source": "package/src/simplified_dict.js",
+  "sourceSha256": "89a0f4a073d3da07290a0c00f4d13d1cc0676fb53d610645dfcc839fff4d1345",
+  "dictionarySha256": "8884303fee49b9e36dd458f85131c3f736312cebbfcb18309f96c16baf170b7c",
+  "license": "MIT",
+  "scope": "Simplified Chinese dictionary data only; matching implementation is local."
+}

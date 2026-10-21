@@ -1,0 +1,23 @@
+{
+  "release": "1.2.0-pre-forge-1.20.1",
+  "adapterCommit": "32de1a1c2e051dd13968d3826dee5c17b60b955b",
+  "coreCommit": "a9d1163390fa8a23ee42e9f47bd2770eef2d59ad",
+  "releaseJarSha256": "50b7157d6db3081359fa8fa3d482ecaca5dd10fbe155197bbe5a1863f8dcebc5",
+  "sourceFiles": [
+    {
+      "name": "StableKey",
+      "url": "https://raw.githubusercontent.com/kuba6000/AE2-Web-Integration/a9d1163390fa8a23ee42e9f47bd2770eef2d59ad/src/main/java/pl/kuba6000/ae2webintegration/core/identity/StableKey.java",
+      "upstreamSha256": "f003ccd2e53f667f6311c2478d96e551846b8246f689e4dcd5bb0bf7a7dfca94"
+    },
+    {
+      "name": "CanonicalNbt",
+      "url": "https://raw.githubusercontent.com/kuba6000/AE2-Web-Integration/32de1a1c2e051dd13968d3826dee5c17b60b955b/src/main/java/pl/kuba6000/ae2webintegration/ae2interface/implementations/CanonicalNbt.java",
+      "upstreamSha256": "d6fe6b4ea9bcc7ed034052eb699e57e7cf9cf44730313c2cbfc71ecded832465"
+    },
+    {
+      "name": "NativeItemIdentity",
+      "url": "https://raw.githubusercontent.com/kuba6000/AE2-Web-Integration/32de1a1c2e051dd13968d3826dee5c17b60b955b/src/main/java/pl/kuba6000/ae2webintegration/ae2interface/implementations/NativeItemIdentity.java",
+      "upstreamSha256": "605b2ed16a2cf20c91edb83cd58b41b70f0330a12103af99e8e6902a71df70b7"
+    }
+  ]
+}

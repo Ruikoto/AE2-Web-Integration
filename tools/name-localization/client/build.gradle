@@ -1,0 +1,63 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.86'
+}
+
+group = 'local.ae2web.names'
+version = '1.0.0-mc1.20.1'
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+legacyForge {
+    version = '1.20.1-47.3.0'
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = 'https://modmaven.dev'
+        content { includeGroup 'appeng' }
+    }
+}
+
+dependencies {
+    modImplementation('appeng:appliedenergistics2-forge:15.4.10') { transitive = false }
+    compileOnly 'org.jetbrains:annotations:26.0.1'
+    // The plugin's Minecraft libraries are on main's compile classpath only.
+    testImplementation 'com.google.code.gson:gson:2.10.1'
+    testImplementation 'com.google.guava:guava:31.1-jre'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+test {
+    useJUnitPlatform()
+    if (providers.gradleProperty('releasedJar').isPresent()) {
+        systemProperty 'releasedJar', providers.gradleProperty('releasedJar').get()
+    }
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('jar') {
+    archiveClassifier = 'dev'
+    from('LICENSE')
+    manifest.attributes('Implementation-Version': project.version)
+}
+tasks.named('reobfJar') { archiveClassifier = 'client-only' }
+
+def verifyReleaseMetadata = tasks.register('verifyReleaseMetadata') {
+    group = 'verification'
+    description = 'Checks that the remapped release JAR includes valid Minecraft 1.20.1 pack metadata.'
+    dependsOn tasks.named('reobfJar')
+    doLast {
+        def release = tasks.named('reobfJar').get().archiveFile.get().asFile
+        new java.util.zip.ZipFile(release).withCloseable { archive ->
+            def entry = archive.getEntry('pack.mcmeta')
+            if (entry == null) throw new GradleException('Release JAR is missing root pack.mcmeta')
+            def metadata = archive.getInputStream(entry).withCloseable { input ->
+                new groovy.json.JsonSlurper().parse(input, 'UTF-8')
+            }
+            if (metadata.pack?.pack_format != 15 || !(metadata.pack?.description instanceof String)
+                || metadata.pack.description.trim().isEmpty()) {
+                throw new GradleException('Release JAR has invalid Minecraft 1.20.1 resource pack metadata')
+            }
+        }
+    }
+}
+tasks.named('check') { dependsOn verifyReleaseMetadata }

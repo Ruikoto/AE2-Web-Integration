@@ -1,0 +1,25 @@
+plugins { id 'java' }
+repositories { mavenCentral() }
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+sourceSets {
+    main.java {
+        srcDirs = ['../client/src/main/java']
+        include 'local/ae2web/names/NameTableWriter.java'
+        include 'local/ae2web/names/identity/StableKey.java'
+    }
+    test.java.srcDirs = ['../client/src/test/java']
+}
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation 'com.google.guava:guava:31.1-jre'
+    compileOnly 'org.jetbrains:annotations:26.0.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+test {
+    useJUnitPlatform()
+    if (providers.gradleProperty('releasedJar').isPresent()) {
+        systemProperty 'releasedJar', providers.gradleProperty('releasedJar').get()
+    }
+}
